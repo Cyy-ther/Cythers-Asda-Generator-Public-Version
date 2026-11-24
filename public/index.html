@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASDA Barcode Gen</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+    <script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #06140a;
+            color: #e6ece7;
+            font-family: "Courier New", Courier, monospace;
+            max-width: 680px;
+            margin: 30px auto;
+            padding: 16px;
+            font-size: 16px;
+            line-height: 1.5;
+            position: relative;
+            z-index: 0;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -35%;
+            z-index: -1;
+            background:
+                repeating-radial-gradient(
+                    ellipse at 50% 100%,
+                    transparent 0 34px,
+                    rgba(53, 170, 45, 0.18) 35px 38px,
+                    transparent 39px 78px
+                ),
+                radial-gradient(ellipse at 20% 25%, rgba(120, 190, 32, 0.28), transparent 42%),
+                radial-gradient(ellipse at 80% 75%, rgba(18, 110, 50, 0.3), transparent 45%);
+            transform: rotate(-8deg) scale(1.05);
+            animation: green-waves 8s ease-in-out infinite alternate;
+        }
+
+        body::after {
+            content: "";
+            position: fixed;
+            inset: -50% -25%;
+            z-index: -1;
+            opacity: 0.5;
+            background: repeating-linear-gradient(
+                105deg,
+                transparent 0 90px,
+                rgba(120, 190, 32, 0.2) 100px 125px,
+                transparent 135px 220px
+            );
+            transform: translateX(-12%) skewY(-8deg);
+            animation: flowing-waves 10s linear infinite;
+        }
+
+        @keyframes green-waves {
+            0% {
+                transform: rotate(-8deg) translate3d(-8%, -5%, 0) scale(1.05);
+            }
+
+            100% {
+                transform: rotate(-8deg) translate3d(8%, 5%, 0) scale(1.12);
+            }
+        }
+
+        @keyframes flowing-waves {
+            from {
+                transform: translateX(-12%) skewY(-8deg);
+            }
+
+            to {
+                transform: translateX(12%) skewY(-8deg);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            body::before,
+            body::after {
+                animation: none;
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+            user-select: none;
+        }
+
+        .asda-logo {
+            font-family: "Arial Black", "Helvetica Neue", Impact, sans-serif;
+            font-weight: 900;
+            font-size: clamp(3rem, 12vw, 4.2rem);
+            letter-spacing: 0.04em;
+            color: #78be20;
+            line-height: 0.95;
+            text-transform: uppercase;
+            text-shadow: 0 4px 20px rgba(120, 190, 32, 0.35);
+        }
+
+        .subtitle {
+            font-family: system-ui, -apple-system, sans-serif;
+            font-weight: 700;
+            font-size: clamp(1rem, 4vw, 1.25rem);
+            color: #ffffff;
+            letter-spacing: 0.18em;
+            text-transform: lowercase;
+            margin-top: 6px;
+        }
+
+        .credit {
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 0.8rem;
+            color: #cbd5cd;
+            margin-top: 2px;
+        }
+
+        .terminal {
+            background-color: #161b17;
+            border: 1px solid #2b382d;
+            border-top: 3px solid #78be20;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+            min-height: 200px;
+            word-break: break-word;
+        }
+
+        .line {
+            margin-bottom: 6px;
+            white-space: pre-wrap;
+        }
+
+        .highlight {
+            color: #78be20;
+            font-weight: bold;
+        }
+
+        .error {
+            color: #ff5555;
+            font-weight: bold;
+        }
+
+        .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            margin: 0;
+        }
+
+        .prompt-label {
+            color: #cbd5cd;
+        }
+
+        .input-controls {
+            display: flex;
+            align-items: center;
+            flex: 1 1 180px;
+            gap: 8px;
+            min-width: 0;
+        }
+
+        .barcode-tools {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-basis: 100%;
+            margin-top: 8px;
+        }
+
+        .barcode-tool-btn,
+        .edit-btn,
+        .stop-scan-btn {
+            background: #1e2620;
+            color: #ffffff;
+            border: 1px solid #354739;
+            padding: 7px 11px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .barcode-tool-btn:hover,
+        .edit-btn:hover,
+        .stop-scan-btn:hover {
+            background: #78be20;
+            color: #0d110e;
+            border-color: #78be20;
+        }
+
+        .barcode-file-input {
+            display: none;
+        }
+
+        .scanner-panel {
+            display: none;
+            margin-top: 12px;
+            text-align: center;
+            flex-basis: 100%;
+        }
+
+        .scanner-video {
+            display: block;
+            width: 100%;
+            max-height: 260px;
+            background: #0d110e;
+            border: 1px solid #354739;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .scanner-status {
+            margin: 8px 0;
+            color: #cbd5cd;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 13px;
+        }
+
+        input {
+            background: transparent;
+            border: none;
+            color: #78be20;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            outline: none;
+            flex: 1;
+            min-width: 0;
+            padding: 0;
+            caret-color: #78be20;
+        }
+
+        .next-btn {
+            background: #78be20;
+            color: #0d110e;
+            border: none;
+            padding: 6px 14px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+
+        .next-btn:hover {
+            background: #89d428;
+        }
+
+        .barcode-container {
+            display: none;
+            margin-top: 20px;
+            background: #ffffff;
+            padding: 14px 8px;
+            border-radius: 6px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            overflow: hidden;
+        }
+
+        .barcode-container svg {
+            width: 100%;
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .edit-controls {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+            justify-content: center;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 14px;
+        }
+
+        .restart-btn {
+            background: #1e2620;
+            color: #ffffff;
+            border: 1px solid #354739;
+            padding: 10px 18px;
+            font-family: system-ui, -apple-system, sans-serif;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .restart-btn:hover {
+            background: #78be20;
+            color: #0d110e;
+            border-color: #78be20;
+        }
+
+        @media (max-width: 520px) {
+            body {
+                margin: 14px auto;
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .terminal {
+                padding: 14px;
+            }
+
+            .input-row {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 6px;
+                margin-top: 4px;
+            }
+
+            .input-controls {
+                flex: none;
+                width: 100%;
+            }
+
+            .barcode-tools {
+                flex-direction: column;
+            }
+
+            .barcode-tool-btn,
+            .edit-btn,
+            .stop-scan-btn {
+                width: 100%;
+            }
+
+            input {
+                background: #0d110e;
+                border: 1px solid #2b382d;
+                border-radius: 4px;
+                padding: 10px;
+            }
+
+            .next-btn {
+                padding: 10px 16px;
+                font-size: 15px;
+            }
+
+            .restart-btn {
+                width: 100%;
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <div class="asda-logo">ASDA</div>
+    <div class="subtitle">barcode gen</div>
+    <div class="credit">Made By Cyy-Ther</div>
+</div>
+
+<div class="terminal" id="terminal" onclick="if (event.target.tagName !== 'BUTTON') document.getElementById('cmd-input')?.focus()">
+    <div id="history"></div>
+    <form class="input-row" id="active-row" onsubmit="handleStepSubmit(event)">
+        <span class="prompt-label" id="prompt-text">Header Prefix (3 digits) </span>
+        <div class="input-controls">
+            <input type="text" id="cmd-input" inputmode="numeric" pattern="[0-9]*" enterkeyhint="next" autofocus autocomplete="off">
+            <button type="submit" class="next-btn" id="next-btn">Next</button>
+        </div>
+        <div class="barcode-tools" id="barcode-tools">
+            <button type="button" class="barcode-tool-btn" id="upload-barcode-btn">Upload Barcode Image</button>
+            <input type="file" class="barcode-file-input" id="barcode-file" accept="image/*">
+            <button type="button" class="barcode-tool-btn" id="scan-barcode-btn">Scan With Camera</button>
+        </div>
+        <div class="scanner-panel" id="scanner-panel">
+            <video class="scanner-video" id="scanner-video" playsinline></video>
+            <div class="scanner-status" id="scanner-status">Point your camera at the barcode.</div>
+            <button type="button" class="stop-scan-btn" id="stop-scan-btn">Stop Scanning</button>
+        </div>
+    </form>
+    <div class="barcode-container" id="barcode-box">
+        <svg id="barcode-svg"></svg>
+    </div>
+    <div class="edit-controls" id="edit-controls">
+        <button type="button" class="edit-btn" data-edit-step="0">Edit Header Prefix</button>
+        <button type="button" class="edit-btn" data-edit-step="1">Edit Product Barcode</button>
+        <button type="button" class="edit-btn" data-edit-step="2">Edit Price</button>
+    </div>
+</div>
+
+<div class="controls">
+    <button type="button" class="restart-btn" onclick="resetTerminal()">Restart Program</button>
+</div>
+
+<script>
+    const STEPS = [
+        { prompt: "Header Prefix (3 digits): ", length: 3, key: "prefix" },
+        { prompt: "Product EAN-13 Barcode (13 digits): ", length: 13, key: "ean" },
+        { prompt: "Price Markdown in Pence (5 digits): ", length: 5, key: "price" }
+    ];
+
+    let currentStep = 0;
+    let rawInputs = {};
+    let editing = false;
+    let scannerControls = null;
+
+    const historyEl = document.getElementById("history");
+    const activeRow = document.getElementById("active-row");
+    const promptText = document.getElementById("prompt-text");
+    const cmdInput = document.getElementById("cmd-input");
+    const nextBtn = document.getElementById("next-btn");
+    const barcodeBox = document.getElementById("barcode-box");
+    const barcodeTools = document.getElementById("barcode-tools");
+    const barcodeFile = document.getElementById("barcode-file");
+    const uploadBarcodeBtn = document.getElementById("upload-barcode-btn");
+    const scanBarcodeBtn = document.getElementById("scan-barcode-btn");
+    const scannerPanel = document.getElementById("scanner-panel");
+    const scannerVideo = document.getElementById("scanner-video");
+    const scannerStatus = document.getElementById("scanner-status");
+    const stopScanBtn = document.getElementById("stop-scan-btn");
+    const editControls = document.getElementById("edit-controls");
+
+    function appendLine(text, className = "") {
+        const div = document.createElement("div");
+        div.className = "line" + (className ? " " + className : "");
+        div.textContent = text;
+        historyEl.appendChild(div);
+    }
+
+    function quickClientCheck(raw, maxLength) {
+        if (raw.length === 0) return "Error: the field cannot be empty.";
+        if (raw.length > maxLength) return `Error: enter at most ${maxLength} digits.`;
+        if (!/^\d+$/.test(raw)) return "Error: the field must contain only numeric digits.";
+        return null;
+    }
+
+    function updateBarcodeTools() {
+        barcodeTools.style.display = currentStep === 1 ? "flex" : "none";
+    }
+
+    function stopScanner() {
+        if (scannerControls) {
+            scannerControls.stop();
+            scannerControls = null;
+        }
+
+        if (scannerVideo.srcObject) {
+            scannerVideo.srcObject.getTracks().forEach((track) => track.stop());
+            scannerVideo.srcObject = null;
+        }
+
+        scannerPanel.style.display = "none";
+    }
+
+    function getDecodedText(result) {
+        if (result && typeof result.getText === "function") {
+            return result.getText();
+        }
+        return result && typeof result.text === "string" ? result.text : "";
+    }
+
+    async function readBarcodeImage(file) {
+        if (!window.ZXingBrowser) {
+            appendLine("Error: barcode scanning is unavailable.", "error");
+            return;
+        }
+
+        const imageUrl = URL.createObjectURL(file);
+        const reader = new ZXingBrowser.BrowserMultiFormatReader();
+
+        try {
+            const result = await reader.decodeFromImageUrl(imageUrl);
+            const text = getDecodedText(result);
+            if (!text) {
+                throw new Error("No barcode found.");
+            }
+            cmdInput.value = text;
+            appendLine("Barcode read from image. Press Next to continue.", "highlight");
+            cmdInput.focus();
+        } catch (err) {
+            appendLine("Error: no readable barcode was found in that image.", "error");
+        } finally {
+            URL.revokeObjectURL(imageUrl);
+            barcodeFile.value = "";
+        }
+    }
+
+    async function startScanner() {
+        if (!window.ZXingBrowser) {
+            appendLine("Error: barcode scanning is unavailable.", "error");
+            return;
+        }
+
+        stopScanner();
+        scannerPanel.style.display = "block";
+        scannerStatus.textContent = "Point your camera at the barcode.";
+
+        try {
+            const reader = new ZXingBrowser.BrowserMultiFormatReader();
+            scannerControls = await reader.decodeFromVideoDevice(
+                undefined,
+                scannerVideo,
+                (result) => {
+                    const text = getDecodedText(result);
+                    if (!text) return;
+                    cmdInput.value = text;
+                    stopScanner();
+                    scannerStatus.textContent = "Barcode detected. Press Next to continue.";
+                    appendLine("Barcode scanned from camera. Press Next to continue.", "highlight");
+                    cmdInput.focus();
+                }
+            );
+        } catch (err) {
+            stopScanner();
+            appendLine("Error: camera access was unavailable.", "error");
+        }
+    }
+
+    async function requestBarcode() {
+        stopScanner();
+        appendLine("");
+        appendLine("Generating...", "highlight");
+
+        try {
+            const response = await fetch("/api/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(rawInputs)
+            });
+
+            const data = await response.json();
+            historyEl.lastElementChild.remove();
+
+            if (!data.ok) {
+                appendLine(data.error, "error");
+                return;
+            }
+
+            const b = data.breakdown;
+            appendLine("Barcode Breakdown", "highlight");
+            appendLine(`Header Prefix: ${b.prefix}`);
+            appendLine(`Product EAN-13: ${b.ean}`);
+            appendLine(`Price in Pence: ${b.price}`);
+            appendLine(`Store ID: ${b.store}`);
+            appendLine(`25-digit Payload: ${b.payload}`);
+            appendLine(`Luhn Check Digit: ${b.checkDigit}`);
+            appendLine(`Complete 26-digit Barcode: ${b.fullBarcode}`, "highlight");
+
+            barcodeBox.style.display = "block";
+            editControls.style.display = "flex";
+            JsBarcode("#barcode-svg", b.fullBarcode, {
+                format: "CODE128",
+                lineColor: "#000000",
+                background: "#ffffff",
+                width: 2,
+                height: 85,
+                displayValue: true,
+                font: "Courier New",
+                fontSize: 15,
+                margin: 10
+            });
+        } catch (err) {
+            historyEl.lastElementChild.remove();
+            appendLine("Error: failed to reach server.", "error");
+        }
+    }
+
+    function handleStepSubmit(e) {
+        e.preventDefault();
+
+        const step = STEPS[currentStep];
+        const val = cmdInput.value;
+
+        appendLine(step.prompt + val);
+
+        const err = quickClientCheck(val, step.length);
+        if (err) {
+            appendLine(err, "error");
+            activeRow.style.display = "flex";
+            return;
+        }
+
+        rawInputs[step.key] = val;
+        cmdInput.value = "";
+
+        if (editing) {
+            editing = false;
+            activeRow.style.display = "none";
+            requestBarcode();
+            return;
+        }
+
+        currentStep++;
+
+        if (currentStep < STEPS.length) {
+            promptText.textContent = STEPS[currentStep].prompt;
+            nextBtn.textContent = currentStep === STEPS.length - 1 ? "Generate" : "Next";
+            updateBarcodeTools();
+            cmdInput.focus();
+        } else {
+            activeRow.style.display = "none";
+            requestBarcode();
+        }
+    }
+
+    function editField(stepIndex) {
+        stopScanner();
+        editing = true;
+        currentStep = stepIndex;
+        promptText.textContent = `Edit ${STEPS[stepIndex].prompt}`;
+        nextBtn.textContent = "Save";
+        cmdInput.value = rawInputs[STEPS[stepIndex].key] || "";
+        activeRow.style.display = "flex";
+        barcodeBox.style.display = "none";
+        editControls.style.display = "none";
+        updateBarcodeTools();
+        cmdInput.focus();
+    }
+
+    function resetTerminal() {
+        stopScanner();
+        historyEl.innerHTML = "";
+        barcodeBox.style.display = "none";
+        editControls.style.display = "none";
+        currentStep = 0;
+        rawInputs = {};
+        editing = false;
+        promptText.textContent = STEPS[0].prompt;
+        nextBtn.textContent = "Next";
+        activeRow.style.display = "flex";
+        updateBarcodeTools();
+        cmdInput.value = "";
+        cmdInput.focus();
+    }
+
+    uploadBarcodeBtn.addEventListener("click", () => barcodeFile.click());
+    barcodeFile.addEventListener("change", () => {
+        const file = barcodeFile.files[0];
+        if (file) readBarcodeImage(file);
+    });
+    scanBarcodeBtn.addEventListener("click", startScanner);
+    stopScanBtn.addEventListener("click", stopScanner);
+    editControls.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-edit-step]");
+        if (button) editField(Number(button.dataset.editStep));
+    });
+
+    updateBarcodeTools();
+</script>
+
+</body>
+</html>
