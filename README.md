@@ -1,6 +1,8 @@
 
 <img width="1296" height="134" alt="image" src="https://github.com/user-attachments/assets/6af1f731-5117-4a87-b26a-4b82575a2cf1" />
 
+Note: This is the public Semi Open Source Version this public repo dose not contain any javascript api that is used to gen the barcode this repo only contains the html file, Ipa download link & The website Link 
+
 ## Features & What Makes Us Special <3
 
 - Custom Value Entering
