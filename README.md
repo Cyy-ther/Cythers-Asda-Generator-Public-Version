@@ -4,6 +4,7 @@
 Note: This is the public Semi Open Source Version this public repo dose not contain any javascript api that is used to gen the barcode this repo only contains the html file, Ipa download link & The website Link in summary this repo contains no backend code 
 
 [Website Link](https://asda-gen.lewis19868.workers.dev/)
+[Direct IOS App Download](https://github.com/Cyy-ther/Cythers-Asda-Generator-Public-Version/releases/download/IOS-Release/V.1.0.Cythers-Asda-Generator.ipa)
 
 ## Features & What Makes Us Special <3
 
